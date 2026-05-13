@@ -72,4 +72,15 @@ I don't see CPU-centric relevance
 ### E2E Latency Analysis
 
 **Conclusions:** 
-- Tool-processing - significant chunk of E2E - HP GPU shifts bottleneck towards CPU even more - thus, similar E2E with HP/LP GPU
+- Tool-processing - significant chunk of E2E - HP GPU shifts bottleneck towards CPU even more (especially when LLM-inference and tool-exec latencies - similar) - thus, similar E2E with HP/LP GPU
+
+
+### GPU Throughput Analysis
+```math
+vLLM\_throughput = BS 
+* \frac{T_{in} + T_{out}}{t_{sec}}
+```
+$T_{out}$ - no. of output tokens
+$T_{in}$ - no. of input tokens
+$BS$ - batch size
+
