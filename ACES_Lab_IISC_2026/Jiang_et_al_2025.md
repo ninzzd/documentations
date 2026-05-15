@@ -123,6 +123,52 @@ Sharding:
 - encoding time scales with context length, despite the relatively small encoder applied : due to the sheer volume of data processed
 - retrieval time is minimal even when using brute-force search due to small database
 - *potential soln*: caching the generated embedding for potential reuse
+- RAG : much faster than LLM only : speedup of 2852.6x in TTFT and 6633.9x in QPS/Chip : even for long-context LLM : global attention in only 4 layers : local attention in remaining
+**Summary**
+
 ### Iterative Retrieval
+- periodically updating retrieved content during generation : enhanced model quality
+- decoder initiates retrievals at flexible intervals during generation
+- temporarily pauses the token generation (decode) during intermediate retrieval : process newly retrieved content through the prefill phase, then decode
+
+**Exp Setup**
+- 2, 4, or 8 retrievals per sequence generation process.
+- important metrics : **decode batch size**, **iterative retrieval-prefix batch size**, **TPOT** (time per output token)
+
+**Exp Observations**
+- batch sizes : to be carefully selected : significantly impact TPOT
+- larger batches : improved retrieval and prefix t.p. : stall decoding
+
+**Dependence on Retrieval Frequency**
+- TPOT latency : **increases** with retrieval frequency
+- At lower decode batch sizes : decode step dominates TPOT => smaller diff from change in retrieval frequency : at higher decode batche size : decode gains high t.p., bottleneck shifts to retrieval => worse impact of retrieval frequency
+
+**Dependence on Iterative Retrieval Batch Size**
+- smaller decoding batch sizes (4 and 16) : increasing the iterative retrieval batch size : noticeable increase in latency : due to inherent **challenge in finding enough retrieval requests** to batch within an active set of decoding sequences
+- For decode batch sizes of 256, the relationship **reverses** : iterative retrieval batch size increases, latency decreases : abundance of active requests => more retrieval batching allowed : better perf
+- effective latency : highly sensitive to the **ratio** of **decode batch size** to **iterative retrieval batch size**.
+- When these batch sizes are **similar** : the normalized decoding latency reaches up to 2.77x : **different requests** reach **retrieval stages/iterations at different times** : **idleness dominates**
+- For smaller ratios (retrieval batch size smaller than decode size) : **more balanced** workload : **minimal idleness** : latency increase is **gradual**
+- when there is a large pool of XPUs that allows for large decoding batches, one can choose the iterative batch size that saturates database throughput, however, 
+- with a smaller pool of XPUs and smaller decoding batch sizes, the optimal decoding batch size may actually be lower than the one that fully saturates the database.
+
+**Summary**
 
 ### Query Rewriter and Reranker
+- vague queries => challenging retrieval (low recall, hard to know relevance)
+- incorporate pre-processing (query rewriter) and post-processing (reranker) for retrieval
+- query rewriter: either **rephrase the query** for clarity or **decompose complex questions** into multiple simpler queries
+- reranker : improves **content retrieval quality** : **scores** each document’s relevance **beyond simple vector similarity** : choosing documents that more closely align
+
+**Exp Setup**
+- extend hyperscale setup : integrate 8B query rewriter model : 120M reranker
+- rewriter processes a 32-token question : generates rephrased question of the same length
+- reranker evaluates 16 nearest passages : each containing 100 tokens : returns top five nearest neighbors
+
+**Exp Observations**
+- query rewriter : significantly increase TTFT latency due to autoregressive nature
+- QPS/Chip : largely unaffected by addition of rewriting, reranking modules
+- TTFT latency increases significantly (2.4x) when the rewriter is included
+- reranking has minimal impact on TTFT
+
+**Summary**
