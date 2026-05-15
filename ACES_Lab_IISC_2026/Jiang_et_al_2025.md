@@ -4,16 +4,6 @@
 
 **Link**: [Jiang et al. 2025](https://arxiv.org/abs/2503.14649v2)
 
-## RAG Paradigms (Imp)
-
-### Hyperscale Retrieval
- - Instead of large LLM-only serving -> RAG with large doc corpus (GB to TB) + small LLM model
-
- - **Bottleneck:** **Retrieval** (due to very large corpus)
-
-
-### Long-Context Sequence Processing
-
 ## RAGSchema
 Defines:
 - execution flow of RAG pipeline
@@ -40,7 +30,7 @@ Defines:
 - 64-128 XPUs (4 XPUs per server)
 - \#servers > 16 : sufficient host memory for database
 
-**XPU**
+**XPU** (XPU-C is default, see paper)
 - ML Acelerator : TPU v5p : 96 HBM : 2.7 TB/s mem BW : 459 TFLOPs
 - XPU-CPU interconnect : 600 GB/s across 6 links (100 GB/s per link)
 
@@ -70,3 +60,69 @@ Sharding:
 - Negligible in practice
 - \#tokens-transferred x bytes-per-token
 - Throughput: Comms >> inference
+
+## RAG Paradigms (RAGSchema)
+**\*\*Note**: performance measured with QPS/chip vs TTFT latency pareto lines
+### Hyperscale Retrieval
+ - Instead of large LLM-only serving -> RAG with large doc corpus (GB to TB) + small LLM model
+- config: RETRO
+- One retrieval operation stage before prefill and decode, multiple independent tokens of the same request are sent for querying and retrieval (batched querying)
+
+**Exp Observations:** 
+- Bottlneck:**Retrieval** (due to very large corpus)
+-  Increasingly dominant for:
+(1) smaller LLM, 
+(2) multi-query retrievals 
+(3) better inference accelerators (shifts bottleneck to CPU) 
+(4) shorter prefix and decode sequence lengths
+(5) higher retrieval quality.
+ 
+    **Advantages**
+    - **Max throughput (QPS/chip) of RAG 8B = 1.5 x Max throughput of LLM-only 70B**
+    
+    **Drawbacks**
+    - **retrieval overhead** and the **need for longer prompts** to integrate retrieved information (512 tokens in RAG versus 32-token questions in LLM-only systems)
+     => <ins>QPS/Chip gain is not directly proportional to the reduction in parameter size</ins>
+
+**Dependence of Retrieval on LLM Size**
+- For small LLMs (8B) : **query per retrieval : inversely scales with QPS** 
+(as query counts double, QPS nearly halves due to increased retrieval demands) : retrieval is the bottleneck **for any number of queries per request**
+- For large LLMs (80B) : **initial limiter : inference** : **beyond 8 queries per request : retirieval dominates**
+
+**Dependence of Retrieval on \#tokens**
+- Contribution of retrieval overhead to total latency : **drops with increase in prefix and decode lengths** (inference dominates for longer token sequences)
+- Adjusting the prefix and decode lengths : **unequal changes** in the percentage of retrieval time (not exactly linear) : reason : prefix inference : **inherently faster than decoding the same number of tokens** : autoregressive nature of decoding.
+
+**Dependence of Retrieval on RAG config**
+- highly sensitive to the percentage of database vectors scanned per search.
+- fundamental trade-off between **retrieval performance** and **quality** : scanning more vectors improves quality but reduces performance (obvious ngl)
+- tradeoff influenced by data distribution (ANN performance depends on the geometry of the embedding space, which depends on data distribution)
+- increasing the scanned database vectors significantly amplifies the proportion of time spent on retrieval
+
+**Summary of Observations**
+- Increased throughput compared to LLM-only: rate decreases with increase in retrieval overhead
+- retrieval overhead: increases with decrease in LLM size
+- retrieval overhead: reduces with longer prefill and decode lengths
+- retrieval overhead: significantly increases with increase in $P_{scan}$ (% of database searched per query) 
+
+### Long-Context Sequence Processing
+- LLM Q&A based on lengthy doc (around 100K tokens) : instead of including entire doc in prompt : treat doc as a knowledge DB :  retrieve only the relevant information for the question
+- Substantial reduction in prompt size : similar response quality
+- Setup requires **DB encoder** : converts doc to vector DB : DB is **orders of mag. smaller than in hyperscale** (see paper for eg.)
+
+**Exp Setup**
+- Context lengths : from 100K to 10M tokens : encoded DB : 1K to 100K vectors, with each chunk/paragraph sized at 128 tokens and small overlaps between chunks
+- sentence transformer model : 120 M parameters : encode the passages : generating 768-dimensional embeddings (vector DB)
+- **Brute force kNN** (k-th nearest neightbours search) **instead of ANN** : ANN has high indexing costs associated with newly generated embeddings
+
+**Exp Observations**
+- Retrieval : **minimal role**
+- New bottleneck : **DB vector encoding** : encoder must process **significantly longer context** compared to long context LLM
+**Dependence on Context Length**
+- As the context length increases : RAG performance gradually degrades : cuz of **increasing cost of context encoding** : **despite LLM prompt-truncation from retrieval** (offsets the gain)
+- encoding time scales with context length, despite the relatively small encoder applied : due to the sheer volume of data processed
+- retrieval time is minimal even when using brute-force search due to small database
+- *potential soln*: caching the generated embedding for potential reuse
+### Iterative Retrieval
+
+### Query Rewriter and Reranker
