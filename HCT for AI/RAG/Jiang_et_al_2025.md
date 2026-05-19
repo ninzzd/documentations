@@ -153,6 +153,7 @@ Sharding:
 - with a smaller pool of XPUs and smaller decoding batch sizes, the optimal decoding batch size may actually be lower than the one that fully saturates the database.
 
 **Summary**
+- TPOT: **heavily dependent** on $\frac{retrieval\;batch\;size}{decode\;batch\;size}$
 
 ### Query Rewriter and Reranker
 - vague queries => challenging retrieval (low recall, hard to know relevance)
@@ -172,3 +173,45 @@ Sharding:
 - reranking has minimal impact on TTFT
 
 **Summary**
+- Throughput : largely unaffected, rewriter : signficantly increases TTFT latency
+
+## RAGO
+Parts:
+### Task placement
+(do I separate or combine(multiplex) different stages?)
+- **Hybrid collocation-disaggregation** task placement
+- Collocation : tighly couples tasks are efficiently grouped : eg. prefill of query rewriter and main LLM, database encoder : compute-bound, highly parallelizable, **similar tasks **: **time-multiplexed on same set of XPUs**
+- Prefill v decode : compute-bound v memory-bound : **inherently different tasks** : **disaggregated (run on different XPUs)** : another eg. decode of query rewriter & prefix of main LLM
+- **Main LLMs prefill** and **decode**: disaggregated
+- **Retrieval** : **disaggregated** : **mainly on CPU**
+- **Neighbouring phases** (stages) upto prefill : **collocated**
+
+### Resource allocation
+(how much hardware does each stage need?)
+- each pipeline phase : **gets sufficient no. of XPUs** (inference) or **CPUs/servers**(retrieval) : depending on compute and mem. requirements
+### Batching policy
+- **Varying batch sizes** at each pipeline stage
+- For decode: continuous batching : multiple requests grouped into one batch : batch varies with time, processed requests may enter batch or leave batch (**continuous batching : dynamically evolving batch**)
+- After batch sizes determined : organize execution order
+
+### Sequence of Operations
+1. **Performance Profiling** (using roofline-based analytical models, see [simulation-setup](#simulation-setup)) : each RAG component : while varying params like batch sizes, etc.
+2. **Schedule Generation**
+Search all possible scheduling strategies on the bases of:
+    - collocation
+    - resource allocation
+    - batching
+
+
+    Identify Pareto frontier : corresponding config params (batch size, etc)
+
+### Evaluation of RAGO and Results
+
+**Base-line:**
+- LLM-only
+- RAG extensions components : collocated with prefill of LLM
+- prefix-decode chip allocation ratio : 1:1
+
+**Results**
+- For long-context processing and query rewriting and reranker RAGs, throughput increases by 1.7x and 1.5x, latencies : comparable
+- For various placement-allocation choices : throughput-optimized increases TTFT by 40%, increases QPS/chip by 1.5x : TTFT vs QPS/chip tradeoff 

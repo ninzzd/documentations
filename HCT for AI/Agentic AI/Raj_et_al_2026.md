@@ -69,7 +69,7 @@ Sys2 - CPU, HP GPU (to isolate CPU-bottlenecks)
 3. **[ChemCrow](https://github.com/ur-whitelab/chemcrow-public)** [[Paper](https://arxiv.org/abs/2304.05376)] - solve chemistry problems - molecular property prediction - uses ReAct (reasoning and acting) (LLM-orchestration) (dynamic-path) (multi-step)
     - Open-source, GitHub repo available, must clone and test
 4. **RAG** - using Haystack (idk much abt this) - uses ENN (**CPU-heavy**) - 115 GB doc corpus
-
+    - open-source, available on [git](https://github.com/deepset-ai/haystack)
 5. **Web-Augmented Agent** - Langchain (same) - web-search -> lexical summary (CPU-based) -> LLM-inference (static-path) (CPU-orchestrated ig) (single-step)
 
 ### E2E Latency Analysis
