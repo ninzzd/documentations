@@ -1,4 +1,0 @@
-# Running Doc
-
-## Literature Review
-

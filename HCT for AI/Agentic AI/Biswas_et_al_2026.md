@@ -17,11 +17,10 @@
 ## Optimizations Suggested
 -  overlap
 tool execution with subsequent LLM prefill using tool-aware
-prompt splitting
-- streaming tool execution to dispatch tools
-incrementally during decode rather than waiting for complete output
+prompt splitting (similar to RAGO, collocation)
+- streaming tool execution to dispatch tools incrementally during decode rather than waiting for complete output
 - orchestrator-aware cache management that uses semantic hints to improve hit rates and reduce
-thrashing
+thrashing (preventing KV cache eviction)
 
 ## Results
 - improves the throughput–latency trade-of
