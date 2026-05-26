@@ -59,6 +59,11 @@
 - **Sharding**: natural partition by data subset. Each shard is an independent DiskANN index.
 
 ## IVF (Inverted File Index)
+### Core Idea
+- **K-means clustering**: find centroids of clusters, determine cluster boundaries (construction of IVF)
+- **Coarse search**: Identify nearest `nprobe` clusters in which or around which query vector `x` is located
+- **Exact search**: Run exact scoring on the vectors in these `nprobe` clusters, find nearest neighbors
 
-## ScaNN
+
+## ScaNN (Scalable Nearest Neighbour Search)
 - Maximum Inner Product Search (MIPS), can support other distance functions such as euclidean dist.
