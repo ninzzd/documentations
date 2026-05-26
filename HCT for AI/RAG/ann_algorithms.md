@@ -15,7 +15,7 @@
 - **Lowest layer (Layer 0)**: Beam search of width `efSearch` maintaining global priority queue of closest nodes to yield top-$K$.
 
 ### Systems Profile
-- **Memory-latency bound** — pointer-chasing via graph edges. Cache misses dominate, not compute.
+- **Memory-latency bound** — pointer-chasing via graph edges. Cache misses dominate, not compute - irregular memory access - major issue with GPU implementations.
 - **High memory footprint** — full graph + raw vectors resident. ~1–2 GB for 1M 128-d vectors, M=32. Linear in N×M.
 - **Key params**: `M` (connectivity/memory), `efSearch` (beam width → recall/latency knob).
 
@@ -66,4 +66,9 @@
 
 
 ## ScaNN (Scalable Nearest Neighbour Search)
-- Maximum Inner Product Search (MIPS), can support other distance functions such as euclidean dist.
+
+### Core Idea
+- **Partitioning**: similar to IVF, determine a subset of all clusters to be searched (clustering done using k-means)
+- **Approximate Scoring**: Key contribution of ScaNN, unlike PQ or SQ, **anisotropic quantization** - minimizes dot product error, not euclidean error, hence minimum recall loss due to quantization
+- **Pruning**: Dissimilar vectors after approximate scoring are removed
+- **Exact reranking**: Compute scored based on exact euclidean distances on unquantized vectors for smaller subset of vectors, post pruning
