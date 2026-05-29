@@ -1,4 +1,6 @@
 # Running Doc
+**Slides/Presentation:** [https://canva.link/a745im5aaotuakq](https://canva.link/a745im5aaotuakq)
+
 **20/05/2026**
 ## Agentic AI
 

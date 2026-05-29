@@ -12,7 +12,7 @@
 - Search: enter top → greedy hop to nearest neighbor → local minimum → drop layer → repeat → answer at layer 0.
 - O(log N) search. Upper layers route; layer 0 dominates compute.
 - **Upper layers**: Simple greedy routing (beam width = 1) tracking a single nearest node per layer.
-- **Lowest layer (Layer 0)**: Beam search of width `efSearch` maintaining global priority queue of closest nodes to yield top-$K$.
+- **Lowest layer (Layer 0)**: Beam search of width `efSearch` - traverse `efSearch` - best candidate paths at each node, instead of best candidate (greedy)
 
 ### Systems Profile
 - **Memory-latency bound** — pointer-chasing via graph edges. Cache misses dominate, not compute - irregular memory access - major issue with GPU implementations.
@@ -23,7 +23,7 @@
 - **Software prefetching** neighbor lists: ~10-30% speedup (HW prefetch ineffective — data-dependent access).
 - **SIMD distance kernels**: M distance computations per hop → AVX2/AVX-512/NEON vectorizable.
 - **PQ compression**: reduce footprint, improve cache hit rate. Trades recall. (`IndexHNSWPQ`).
-- **IVF+HNSW composite**: HNSW as coarse quantizer for IVF scan.
+- **IVF+HNSW composite**: HNSW as coarse quantizer for IVF scan. (VectorLiteRAG)
 
 ### Parallelizability
 - **Inter-query**: trivial — no shared mutable state. Primary parallelism axis.
@@ -60,9 +60,10 @@
 
 ## IVF (Inverted File Index)
 ### Core Idea
-- **K-means clustering**: find centroids of clusters, determine cluster boundaries (construction of IVF)
-- **Coarse search**: Identify nearest `nprobe` clusters in which or around which query vector `x` is located
-- **Exact search**: Run exact scoring on the vectors in these `nprobe` clusters, find nearest neighbors
+- **K-means clustering**: Find centroids of clusters, determine cluster boundaries (construction of IVF)
+- **Coarse search** or **Coarse Quantization (CQ)**: Identify nearest `nprobe` clusters in which or around which query vector `x` is located
+(can be done using HNSW or NSW for large no. of centroids, or brute-force)
+- **Exact search**: IVF - dictionary - key:centroid vector,value:list of vectors in that cluster - run exact scoring on the vectors in these `nprobe` clusters by IVF-lookup, find nearest neighbors
 
 
 ## ScaNN (Scalable Nearest Neighbour Search)
