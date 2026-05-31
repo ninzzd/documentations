@@ -88,7 +88,10 @@ $\boxed{\sigma^2 \approx 4.\sigma_{max}^2.\eta.(1-\eta)}$
 **Index Splitter**
 - After $\rho$ is determined
 - Identifies hot clusters (from access profiles - cumulative frequency) and $\rho$
-- Hot clusters - sorted by size - sent to GPU shards in round-robin fashion - each shard holds sub-index (try to balance sub-index sizes/mem usage)
+- Hot clusters - sorted by size - sent to GPU shards using straightforward **round-robin** (as per the paper).
+- *Optimization Idea:* Use a **zig-zag (snake-like) round-robin** scheme instead to better balance sub-index memory usage:
+  - 1st pass: allot clusters descending by size from GPU 0 to $N-1$
+  - 2nd pass: alternate direction and allot from GPU $N-1$ to 0, and repeat. This ensures both the sum and mean of cluster sizes per GPU remain similar.
 ![visual](./index-splitting-visual.jpg)
 - Generates map tables - mapping global cluster IDs $\rightarrow$ shard ID, local cluster ID (simple LUT, CPU-hosted)
 
@@ -96,10 +99,27 @@ $\boxed{\sigma^2 \approx 4.\sigma_{max}^2.\eta.(1-\eta)}$
 ### Distributed VectorLiteRAG Pipeline
 
 **Router**
+
 - Default router (according to paper) - FAISS - IndexIVFShards
+- IndexIVFShards - uniformly distributes equal no. of clusters to GPU shards - query broadcasted to all shards - waste of compute in shards without required clusters - memory overhead, scheduling bandwidth loss
+- Instead - splitter generates mapping tables - CQ occurs in CPU - query sent to appropriate shards only - different `nprobe` per shard
+- Shards idle with no retrieval distance computation - more LLM throughput
+- After CQ - query sent to required shards - LUT distance computation : CPU (slow clusters) + some GPU shards (hot clusters, mapping table)
+
+![router](./router-visual.jpg)
 
 **Dynamic Dispatcher**
+\*\*`Note`: minimum hit rate - hit rate of tail-query (stragglers)
+- Goal - accelerates early query completion
+- CPU - vector distance computing threads + `dispatcher thread`
+- Each shard - has a completion flag - unique to query
+- `dispatcher thread`:
+    - poll for completion flags from all shards (GPU + CPU threads)
+    - If a flag is set - adds no. of clusters chcekd by shard to `global cluster counter`- compared with nprobe
+    - If count exceeds nprobe - add to query to thread-safe queue
+    - poll for queries in completion queue, forward ejeted queries to database (vector-passage conversion)
 
+![dispatcher](./dispatcher-visual.jpg)
 
 **Adaptive Runtime Index Update**
 
