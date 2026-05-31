@@ -122,7 +122,25 @@ $\boxed{\sigma^2 \approx 4.\sigma_{max}^2.\eta.(1-\eta)}$
 ![dispatcher](./dispatcher-visual.jpg)
 
 **Adaptive Runtime Index Update**
+- Cause: temporal bias in retrieval - drift of cluster frequencies over time
+- Solution:
+    - Re-profiling - obtain cluster frequencies
+    - Re-run latency-partitioning algorithm
+    - Generate sub-indexes and shards (less than 10s)
+    - Loading shards onto GPUs (overall - < 10 min)
+- During re-indexing - queries - redirected to CPU paths (implies cluster/shard copies on CPU)
+- Index re-update period $\approx$ 1 hr
+- \*\*Note: 
+    - clusters - stored contiguously for high-BW access
+    - for 10M ORCAS - profiling 0.5% of queries - enough to sample distribution
 
+### Experiment Setup
+
+**Datasets and Models**
+
+**System Config**
+
+**Baseline Config**
 
 ## Limitations
 
